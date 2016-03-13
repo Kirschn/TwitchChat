@@ -1,4 +1,8 @@
 {
+  "irc": {
+    "nick": "",
+    "token": ""
+  },
   "timestamps": true,
   "channels": ["#thekirschn", "#xovigin", "#thedjnewstyle"]
 }

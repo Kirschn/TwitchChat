@@ -12,11 +12,12 @@
         var irc = require("irc"),
                 fs = require("fs"),
                 request = require("request");
-        var username = "thekirschn",
-                token = "";
+        var config = JSON.parse(fs.readFileSync("config.json"));
+        var username = config["irc"]["nick"],
+                token = config["irc"]["token"];
         var mods = [],
                 users = [];
-        var config = JSON.parse(fs.readFileSync("config.json"));
+
         var channelhtmls = [],
                 userlisthtml = [];
         var activechannel = "";
