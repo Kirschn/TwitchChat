@@ -1,0 +1,20 @@
+{
+  "main": "main.html",
+  "name": "Twitch Chat",
+  "description": "Native Twitch Chat Client",
+  "version": "0.5.5",
+  "keywords": [ "Twitch", "IRC" ],
+  "window": {
+    "title": "Twitch IRC",
+    "icon": "turbo.png",
+    "toolbar": true,
+    "frame": true,
+    "width": 800,
+    "height": 500,
+    "min_width": 400,
+    "min_height": 200
+   },
+  "webkit": {
+    "plugin": true
+  }
+}
