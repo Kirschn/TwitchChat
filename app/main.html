@@ -26,6 +26,25 @@
             while (s.length < size) s = "0" + s;
             return s;
         }
+        function occurrences(string, subString, allowOverlapping) {
+
+            string += "";
+            subString += "";
+            if (subString.length <= 0) return (string.length + 1);
+
+            var n = 0,
+                    pos = 0,
+                    step = allowOverlapping ? 1 : subString.length;
+
+            while (true) {
+                pos = string.indexOf(subString, pos);
+                if (pos >= 0) {
+                    ++n;
+                    pos += step;
+                } else break;
+            }
+            return n;
+        }
         var client = new irc.Client('irc.twitch.tv', username,
                 {
                     userName: username, // IRC Name
@@ -129,12 +148,17 @@
             if (aftermsg == undefined) {
                 aftermsg = "";
             }
+            if (occurrences(channelhtmls[channel], "<br>") >= config["maxmessages"]) {
+                var splitted = channelhtmls[channel].split("<br>");
+                channelhtmls[channel] = channelhtmls[channel].replace(splitted[0] + "<br>", "");
+            }
             if (config.timestamps) {
                 var date = new Date();
-                if (channel == activechannel) {
-                    $("#messages").append("[" + pad(date.getHours(), 2) + ":" +pad(date.getMinutes(), 2)+":"+pad(date.getSeconds(), 2)+"] " + premsg + " " + line + aftermsg + "<br>");
-                }
                 channelhtmls[channel] = channelhtmls[channel] + "[" + pad(date.getHours(), 2) + ":" +pad(date.getMinutes(), 2)+":"+pad(date.getSeconds(), 2)+"] " + premsg + " " + line + aftermsg + "<br>";
+                if (channel == activechannel) {
+                    $("#messages").html(channelhtmls[channel]);
+                }
+
             }else {
                 if (channel == activechannel) {
                     $("#messages").append( premsg + " " + line + aftermsg + "<br>");
@@ -146,12 +170,11 @@
             console.log("Switching active Channel to " + channel);
             if (channel !== activechannel) {
                 activechannel = channel;
+                console.log("TO" + typeof channelhtmls[channel]);
                 if (channelhtmls[channel] == undefined) {
                     channelhtmls[channel] = "";
-                } else {
-                    $("#messages").html(channelhtmls[channel]);
                 }
-
+                $("#messages").html(channelhtmls[channel]);
                 $("#chatters").html(userlisthtml[channel]);
             }
         }
@@ -216,6 +239,7 @@
                     var message = message.args[0].replace(splitmessage[0] + " " + splitmessage[1] + " " + splitmessage[2] + " :", "");
                     console.log("Message parsed");
                     var emotes = splitinfo[2].substr(7).split("/");
+                    console.log(emotes);
                     console.log("Emote list splitted");
                     var isturbo = false;
                     if (color=="") {
@@ -227,14 +251,39 @@
                     console.log("Turbo checked");
                     message = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     console.log("Message escaped");
+                    var replacesubstrs = [];
+                    var addlength = 0;
                     if (emotes[0] !== undefined && emotes[0] !== ""){
                         emotes.forEach(function(currentemote) {
                             var idsplit = currentemote.split(":");
-                            var startstop = idsplit[1].split("-");
-                            message = message.replace(message.substr(startstop[0], startstop[1]+1), "<img src='https://static-cdn.jtvnw.net/emoticons/v1/" + idsplit[0] + "/1.0' class='modicon'>");
+                            if (currentemote.indexOf(",") > -1) {
+                                idsplit[1] = idsplit[1].split(",")[0];
+                            }
+                                var startstop = idsplit[1].split("-");
+                                console.log(startstop);
+                                console.log("Single Emote parsing: " + startstop);
+                                console.log("Message: " + message);
+                                console.log(startstop[1]);
+                                console.log(startstop[0]);
+                                console.log("Emotelength:" + (startstop[1] - startstop[0]) + "(" + message.substr(parseInt(startstop[0]), parseInt(startstop[1])) + ")");
+                                replacesubstrs.push(message.substr(parseInt(startstop[0]), parseInt(startstop[1]) + 1).split(" ")[0] + "||" + "<img src='https://static-cdn.jtvnw.net/emoticons/v1/" + idsplit[0] + "/1.0' class='modicon'>");
+
                         })
 
                     }
+                    console.log(replacesubstrs);
+                    replacesubstrs.forEach(function (current) {
+                        console.log(current);
+                        var splitcurrent = current.split("||");
+                        var occurrence = occurrences(message, splitcurrent[0]);
+                        console.log(occurrence + " Occurrences");
+                        var it = 0;
+                        while (it !== occurrence) {
+                            message = message.replace(splitcurrent[0], splitcurrent[1]);
+                            it++;
+                        }
+                        console.log(message);
+                    });
                     console.log("Emotes parsed");
                     var premsg = '';
                     console.log("Channel: "+ channel);
@@ -254,6 +303,7 @@
                     if (users[channel].indexOf(username.toLowerCase()) == -1) {
                         users[channel].push(username.toLowerCase())
                     }
+                    console.log("Username pushed");
 
                 }
 
@@ -328,7 +378,40 @@
                 join(current);
             }, iteration*1000);
             iteration++;
-        })
+        });
+        $(document).ready(function() {
+            $(".sendasdfasdf").onkeydown(function (e) {
+                console.log("KEYDOWN " + e);
+                if (e.keyCode == 13) {
+                    if (document.getElementById("sendfield").value.split(" ")[0] == "/w") {
+                        // Whisper
+                        var splitinput = document.getElementById("sendfield").value.split(" ");
+                        if (splitinput[2] !== undefined) {
+                            whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
+                        }
+                    } else {
+                        client.say(activechannel, document.getElementById("sendfield").value);
+                    }
+                }
+            });
+        });
+        function onKeyPressed(ev) {
+            var e = ev || event;
+            if(e.keyCode == 13) {
+                //Enter was pressed
+                if (document.getElementById("sendfield").value.split(" ")[0] == "/w") {
+                    // Whisper
+                    var splitinput = document.getElementById("sendfield").value.split(" ");
+                    if (splitinput[2] !== undefined) {
+                        whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
+                    }
+                } else {
+                    client.say(activechannel, document.getElementById("sendfield").value);
+                }
+                return false; //prevents form from being submitted.
+            }
+        }
+
 
 
     </script>
@@ -395,7 +478,7 @@
 <body>
     <div id="channels"></div>
     <div id="messages"></div>
-    <div id="send"><input width="100%" style="width: 100%;" id="sendfield" placeholder="Type your message here..." /></div>
+    <div id="send"><input width="100%" style="width: 100%;" onkeyup="onKeyPressed(event)" class="send" id="sendfield" placeholder="Type your message here..." /></div>
     <div id="chatters">
 
     </div>

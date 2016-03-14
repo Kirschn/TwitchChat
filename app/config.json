@@ -4,5 +4,6 @@
     "token": ""
   },
   "timestamps": true,
-  "channels": ["#thekirschn", "#xovigin", "#thedjnewstyle"]
+  "channels": ["#thekirschn", "#xovigin", "#thedjnewstyle"],
+  "maxmessages": 200
 }
