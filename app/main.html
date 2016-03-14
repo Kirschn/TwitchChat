@@ -115,6 +115,10 @@
             channelhtmls = [];
             switchchannel(channel);
             $("#channels").append("<div id='channel' onclick='switchchannel(\"" + channel +  "\")'>" + channel + "</div>")
+            if (config.channels.indexOf(channel) == -1){
+                config.channels.push(channel);
+                fs.writeFileSync("config.json", JSON.stringify(config));
+            }
 
         }
         function log(line, channel, premsg, aftermsg) {
@@ -350,10 +354,22 @@
         }
         #messages {
             width: 60%;
-            height: 100%;
+            height: calc(100% - 20pt);
             position: absolute;
             left: 20%;
             overflow-y: scroll;
+
+
+        }
+        #send {
+            width: 60%;
+            height: 20pt;
+            bottom: 0;
+            position: absolute;
+            left: 20%;
+            overflow-y: scroll;
+            color:black;
+            background: white;
 
         }
         img.modicon {
@@ -379,7 +395,7 @@
 <body>
     <div id="channels"></div>
     <div id="messages"></div>
-    <div id="send"></div>
+    <div id="send"><input width="100%" style="width: 100%;" id="sendfield" placeholder="Type your message here..." /></div>
     <div id="chatters">
 
     </div>
