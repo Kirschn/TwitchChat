@@ -7,7 +7,7 @@
   "window": {
     "title": "Twitch IRC",
     "icon": "turbo.png",
-    "toolbar": false,
+    "toolbar": true,
     "frame": true,
     "width": 800,
     "height": 500,
@@ -16,5 +16,6 @@
    },
   "webkit": {
     "plugin": true
-  }
+  },
+  "chromium-args": "--enable-smooth-scrolling"
 }
