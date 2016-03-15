@@ -26,6 +26,11 @@
             while (s.length < size) s = "0" + s;
             return s;
         }
+        var me = {
+          "turbo": false,
+            "color": "#FFFFF",
+            "display-name": username
+        };
         function occurrences(string, subString, allowOverlapping) {
 
             string += "";
@@ -46,6 +51,30 @@
             return n;
         }
         var client = new irc.Client('irc.twitch.tv', username,
+                {
+                    userName: username, // IRC Name
+                    realName: username, // Wird nicht wirklich gebraucht
+                    port: 6667,
+                    localAddress: null,
+                    debug: false, // Nur für Testinstanz an, genz nützlich um Pings, gesendete Nachrichten etc. zu sehen
+                    showErrors: true,
+                    autoRejoin: true,
+                    autoConnect: true,
+                    channels: [],
+                    secure: false,
+                    selfSigned: false,
+                    certExpired: false,
+                    floodProtection: false,
+                    floodProtectionDelay: 1000,
+                    sasl: false,
+                    stripColors: false,
+                    channelPrefixes: "&#",
+                    messageSplit: 999, // 999 ist maximale Twitch Nachrichtenlänge
+                    encoding: '',
+                    password: token // Wirde zuvor festgelegt aus A) Stdin B) Config File
+                }
+        );
+        var sendclient = new irc.Client('irc.twitch.tv', username,
                 {
                     userName: username, // IRC Name
                     realName: username, // Wird nicht wirklich gebraucht
@@ -120,6 +149,7 @@
                 }
         );
         client.send('CAP', 'REQ', 'twitch.tv/commands');
+        sendclient.send('CAP', 'REQ', 'twitch.tv/commands');
         client.send('CAP', 'REQ', 'twitch.tv/membership');
         client.send('CAP', 'REQ', 'twitch.tv/tags');
         clientaws.send('CAP', 'REQ', 'twitch.tv/commands');
@@ -128,6 +158,7 @@
         }
         function join(channel) {
             client.join(channel);
+            sendclient.join(channel);
             mods[channel] = [];
             users[channel] = [];
             userlisthtml[channel] = [];
@@ -155,6 +186,10 @@
             if (config.timestamps) {
                 var date = new Date();
                 channelhtmls[channel] = channelhtmls[channel] + "[" + pad(date.getHours(), 2) + ":" +pad(date.getMinutes(), 2)+":"+pad(date.getSeconds(), 2)+"] " + premsg + " " + line + aftermsg + "<br>";
+                channelhtmls[channel].substr(0,10);
+                if (channelhtmls[channel].substr(0, 10) == "undefined[") {
+                    channelhtmls[channel] = channelhtmls[channel].replace(channelhtmls[channel].substr(0,9), "");
+                }
                 if (channel == activechannel) {
                     $("#messages").html(channelhtmls[channel]);
                 }
@@ -188,7 +223,11 @@
         client.on('raw', function (message) {
             console.log(message);
             if (message.args[1] == "Error logging in" && message.command == "NOTICE") {
-                alert("Login error");
+                window.open("login.html");
+                client.disconnect();
+                clientaws.disconnect();
+                groupchatclient.disconnect();
+                window.close();
             } else if ((message.args[1] !== undefined) && message.command == "NOTICE") {
             }
             if (message.args[1] !== undefined) {
@@ -305,6 +344,11 @@
                     }
                     console.log("Username pushed");
 
+                } else if (splitmessage[1] == "GLOBALUSERSTATE") {
+                    var split = message.command.split(";");
+                    me.color = split[0].replace("@color=", "")
+                    me.turbo = ((split[3] == "turbo=1") ? true : false);
+                    me["display-name"] = split[1].replace("display-name=", "");
                 }
 
             }
@@ -312,7 +356,7 @@
         clientaws.on('raw', function (message) {
             console.log(message);
             if (message.args[1] == "Error logging in" && message.command == "NOTICE") {
-                alert("Login error");
+                window.href = "login.html"
             } else if ((message.args[1] !== undefined) && message.command == "NOTICE") {
                 if (message.args[1].replace("The moderators of this room are: ", "") !== message.args[1]) {
                     log(message.args[1], message.args[0], "<i>")
@@ -390,8 +434,9 @@
                             whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
                         }
                     } else {
-                        client.say(activechannel, document.getElementById("sendfield").value);
+                        sendclient.say(activechannel, document.getElementById("sendfield").value);
                     }
+                    document.getElementById("sendfield").value = "";
                 }
             });
         });
@@ -406,12 +451,17 @@
                         whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
                     }
                 } else {
-                    client.say(activechannel, document.getElementById("sendfield").value);
+                    sendclient.say(activechannel, document.getElementById("sendfield").value);
                 }
                 return false; //prevents form from being submitted.
             }
         }
-
+        function joindialog() {
+            var input = window.prompt("Join Channel:");
+            if (input !== null) {
+                join("#" + input.replace("#", ""));
+            }
+        }
 
 
     </script>
@@ -420,14 +470,15 @@
             margin: 0;
             background: #222426;
             color: white;
+            font-size: 14px;
         }
-        #channels {
+        #channellist {
             height: 100%;
             width: 20%;
             position: absolute;
             overflow-y: scroll;
         }
-        #chatters {
+        #userlist {
             width: 20%;
             height: 100%;
             left: 80%;
@@ -469,6 +520,11 @@
             text-align: center;
             vertical-align:middle;
         }
+        #addbutton {
+            height: 5%;
+            width: 100%;
+            text-align: center;
+        }
         #channel:hover {
             background: #100000;
         }
@@ -476,11 +532,13 @@
     </style>
 </head>
 <body>
-    <div id="channels"></div>
+    <div id="channellist"><div id="channels"></div><div id="addbutton" onclick="joindialog()"><i class="plus icon"></i></div></div>
     <div id="messages"></div>
     <div id="send"><input width="100%" style="width: 100%;" onkeyup="onKeyPressed(event)" class="send" id="sendfield" placeholder="Type your message here..." /></div>
-    <div id="chatters">
-
+    <div id="userlist">
+        <div id="chatters">
+        </div>
     </div>
+
 </body>
 </html>

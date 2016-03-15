@@ -1,9 +1,1 @@
-{
-  "irc": {
-    "nick": "thekirschn",
-    "token": ""
-  },
-  "timestamps": true,
-  "channels": ["#thekirschn", "#xovigin", "#thedjnewstyle"],
-  "maxmessages": 200
-}
+{"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200}

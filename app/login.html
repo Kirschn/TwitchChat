@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222426;
+            color: white;
+        }
+        #center {
+            top: 40%;
+            position: absolute;
+            width: 100%;
+        }
+    </style>
+    <script>
+
+        function startauth() {
+            var gui = require('nw.gui');
+            var express = require('express');
+            var fs = require("fs");
+            var request = require("request");
+            var app = express();
+
+            app.get('/auth', function (req, res) {
+                if (req.query.access_token !== undefined) {
+                       res.send("Okay, you can close this browser window now.");
+                       var config = JSON.parse(fs.readFileSync("config.json"));
+                       config["irc"]["token"] = "oauth:" + req.query.access_token;
+                        request({
+                            url: "https://api.twitch.tv/kraken/user",
+                            headers : {
+                                "Authorization":"OAuth " + req.query.access_token
+                            }
+                        }, function (error, response, body) {
+                            if (!error && response.statusCode == 200) {
+                                 var user = JSON.parse(body);
+                                config["irc"]["nick"] = user["name"];
+                                config["irc"]["display_name"] = user["name"];
+                                fs.writeFileSync("config.json", JSON.stringify(config));
+                                window.open("main.html");
+                                window.close();
+
+                            }
+                        });
+                    console.log(config);
+                } else {
+                    res.end('<html><head><title>Please enable Javascript</title><script>window.location = String(window.location).split("#")[0] + "?" + location.hash.substr(1)\<\/script></head>');
+                }
+                console.log(req)
+            });
+
+            app.listen(8089, function () {
+                console.log('Example app listening on port 3000!');
+                gui.Shell.openExternal("https://www.twitch.tv/kraken/oauth2/authorize?client_id=i7sp19otoyrgpl82ifct8isu75yw8ny&redirect_uri=http://127.0.0.1:8089/auth&response_type=token&scope=chat_login+channel_editor+user_blocks_edit+user_blocks_read+user_read");
+            });
+
+        }
+    </script>
+</head>
+<body>
+<div id="center">
+    <a onclick="startauth()">Auth</a>
+</div>
+</body>
+</html>
