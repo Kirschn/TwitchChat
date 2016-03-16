@@ -15,9 +15,18 @@
             width: 100%;
             text-align: center;
         }
+        a.button {
+            -webkit-appearance: button;
+            -moz-appearance: button;
+            appearance: button;
+
+            text-decoration: none;
+            color: initial;
+        }
     </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
     <script>
-        window.title("CherryChat: Login");
+        window.title = "CherryChat: Login";
         function startauth() {
             var gui = require('nw.gui');
             var express = require('express');
@@ -41,8 +50,7 @@
                                 config["irc"]["nick"] = user["name"];
                                 config["irc"]["display_name"] = user["name"];
                                 fs.writeFileSync("config.json", JSON.stringify(config));
-                                window.open("main.html");
-                                window.close();
+                                $("#center").html("<img src='logo.png'><br>Okay!<br><a href='main.html' class='button'>Connect</a> ")
 
                             }
                         });
@@ -63,7 +71,7 @@
 </head>
 <body>
 <div id="center">
-    <a onclick="startauth()">Click here to log in</a>
+    <a onclick="startauth()"><img src="logo.png"><br>Click here to log in</a>
 </div>
 </body>
 </html>

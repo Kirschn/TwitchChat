@@ -192,6 +192,15 @@
                 }
                 if (channel == activechannel) {
                     $("#messages").html(channelhtmls[channel]);
+
+                    var objDiv = document.getElementById("messages");
+                    if ((document.getElementById("messages").scrollHeight - (document.getElementById("messages").scrollTop + $("#messages").height())*1.02) > 0) {
+                        console.log("NOT SCROLLING!")
+                    } else {
+                        objDiv.scrollTop = objDiv.scrollHeight;
+                        console.log("SCROLLING!")
+                    }
+
                 }
 
             }else {
@@ -211,7 +220,9 @@
                 }
                 $("#messages").html(channelhtmls[channel]);
                 $("#chatters").html(userlisthtml[channel]);
-                window.title("CherryChat: " + channel);
+                window.title = "CherryChat: " + channel;
+                var objDiv = document.getElementById("messages");
+                objDiv.scrollTop = objDiv.scrollHeight;
             }
         }
         function handlemessage(message, channel, username) {
@@ -454,13 +465,33 @@
                 } else {
                     sendclient.say(activechannel, document.getElementById("sendfield").value);
                 }
+                document.getElementById("sendfield").value = "";
                 return false; //prevents form from being submitted.
+
             }
         }
         function joindialog() {
             var input = window.prompt("Join Channel:");
             if (input !== null) {
-                join("#" + input.replace("#", ""));
+                if (input.indexOf(",") !== -1) {
+                    var splitinput = input.split(",");
+                    if (splitinput.length >= 15) {
+                        log("Note: You're trying to join too many channels at one - please restart the application, you could run into a two hour Twitch ban!", activechannel, "", "");
+                        splitinput.forEach(function(lecurrent) {
+                            config.channels.push("#" + lecurrent.replace("#", ""));
+                        });
+                        fs.writeFileSync("config.json", JSON.stringify(config));
+                    } else {
+                        splitinput.forEach(function (currentchannel) {
+                            if (currentchannel !== "" || currentchannel !== "") {
+                                join("#" + currentchannel.replace("#", ""));
+                            }
+                        })
+                    }
+
+                } else {
+                    join("#" + input.replace("#", ""));
+                }
             }
         }
 
@@ -502,7 +533,7 @@
             bottom: 0;
             position: absolute;
             left: 20%;
-            overflow-y: scroll;
+            overflow: hidden;
             color:black;
             background: white;
 
@@ -534,7 +565,7 @@
 </head>
 <body>
     <div id="channellist"><div id="channels"></div><div id="addbutton" onclick="joindialog()"><i class="plus icon"></i></div></div>
-    <div id="messages"></div>
+    <div id="messages">You haven't joined any channel yet! Click on the plus on the left control panel to join one</div>
     <div id="send"><input width="100%" style="width: 100%;" onkeyup="onKeyPressed(event)" class="send" id="sendfield" placeholder="Type your message here..." /></div>
     <div id="userlist">
         <div id="chatters">
