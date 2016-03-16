@@ -12,7 +12,20 @@
         var irc = require("irc"),
                 fs = require("fs"),
                 request = require("request");
-        var config = JSON.parse(fs.readFileSync("config.json"));
+        try {
+            fs.accessSync(process.env.HOMEPATH + "/.cherrychat", fs.F_OK);
+            // Do something
+        } catch (e) {
+            fs.mkdirSync(process.env.HOMEPATH + "/.cherrychat");
+        }
+        try {
+            fs.accessSync(process.env.HOMEPATH + "/.cherrychat/config.json", fs.F_OK);
+            var config = JSON.parse(fs.readFileSync(process.env.HOMEPATH + "/.cherrychat/config.json"));
+        } catch (e) {
+            var config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200};
+            fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+        }
+
         var username = config["irc"]["nick"],
                 token = config["irc"]["token"];
         var mods = [],
@@ -167,7 +180,7 @@
             $("#channels").append("<div id='channel' onclick='switchchannel(\"" + channel +  "\")'>" + channel + "</div>")
             if (config.channels.indexOf(channel) == -1){
                 config.channels.push(channel);
-                fs.writeFileSync("config.json", JSON.stringify(config));
+                fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
             }
 
         }
@@ -480,7 +493,7 @@
                         splitinput.forEach(function(lecurrent) {
                             config.channels.push("#" + lecurrent.replace("#", ""));
                         });
-                        fs.writeFileSync("config.json", JSON.stringify(config));
+                        fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
                     } else {
                         splitinput.forEach(function (currentchannel) {
                             if (currentchannel !== "" || currentchannel !== "") {

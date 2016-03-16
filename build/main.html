@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>CherryChat</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
+    <script>
+        console.log("Started client");
+        var irc = require("irc"),
+                fs = require("fs"),
+                request = require("request");
+        try {
+            fs.accessSync(process.env.HOMEPATH + "/.cherrychat", fs.F_OK);
+            // Do something
+        } catch (e) {
+            fs.mkdirSync(process.env.HOMEPATH + "/.cherrychat");
+        }
+        try {
+            fs.accessSync(process.env.HOMEPATH + "/.cherrychat/config.json", fs.F_OK);
+            var config = JSON.parse(fs.readFileSync(process.env.HOMEPATH + "/.cherrychat/config.json"));
+        } catch (e) {
+            var config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200};
+            fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+        }
+
+        var username = config["irc"]["nick"],
+                token = config["irc"]["token"];
+        var mods = [],
+                users = [];
+
+        var channelhtmls = [],
+                userlisthtml = [];
+        var activechannel = "";
+        function pad(num, size) {
+            var s = num+"";
+            while (s.length < size) s = "0" + s;
+            return s;
+        }
+        var me = {
+          "turbo": false,
+            "color": "#FFFFF",
+            "display-name": username
+        };
+        function occurrences(string, subString, allowOverlapping) {
+
+            string += "";
+            subString += "";
+            if (subString.length <= 0) return (string.length + 1);
+
+            var n = 0,
+                    pos = 0,
+                    step = allowOverlapping ? 1 : subString.length;
+
+            while (true) {
+                pos = string.indexOf(subString, pos);
+                if (pos >= 0) {
+                    ++n;
+                    pos += step;
+                } else break;
+            }
+            return n;
+        }
+        var client = new irc.Client('irc.twitch.tv', username,
+                {
+                    userName: username, // IRC Name
+                    realName: username, // Wird nicht wirklich gebraucht
+                    port: 6667,
+                    localAddress: null,
+                    debug: false, // Nur für Testinstanz an, genz nützlich um Pings, gesendete Nachrichten etc. zu sehen
+                    showErrors: true,
+                    autoRejoin: true,
+                    autoConnect: true,
+                    channels: [],
+                    secure: false,
+                    selfSigned: false,
+                    certExpired: false,
+                    floodProtection: false,
+                    floodProtectionDelay: 1000,
+                    sasl: false,
+                    stripColors: false,
+                    channelPrefixes: "&#",
+                    messageSplit: 999, // 999 ist maximale Twitch Nachrichtenlänge
+                    encoding: '',
+                    password: token // Wirde zuvor festgelegt aus A) Stdin B) Config File
+                }
+        );
+        var sendclient = new irc.Client('irc.twitch.tv', username,
+                {
+                    userName: username, // IRC Name
+                    realName: username, // Wird nicht wirklich gebraucht
+                    port: 6667,
+                    localAddress: null,
+                    debug: false, // Nur für Testinstanz an, genz nützlich um Pings, gesendete Nachrichten etc. zu sehen
+                    showErrors: true,
+                    autoRejoin: true,
+                    autoConnect: true,
+                    channels: [],
+                    secure: false,
+                    selfSigned: false,
+                    certExpired: false,
+                    floodProtection: false,
+                    floodProtectionDelay: 1000,
+                    sasl: false,
+                    stripColors: false,
+                    channelPrefixes: "&#",
+                    messageSplit: 999, // 999 ist maximale Twitch Nachrichtenlänge
+                    encoding: '',
+                    password: token // Wirde zuvor festgelegt aus A) Stdin B) Config File
+                }
+        );
+        var groupchatclient = new irc.Client('199.9.253.119', username,
+                {
+                    userName: username, // IRC Name
+                    realName: username, // Wird nicht wirklich gebraucht
+                    port: 6667,
+                    localAddress: null,
+                    debug: true, // Nur für Testinstanz an, genz nützlich um Pings, gesendete Nachrichten etc. zu sehen
+                    showErrors: true,
+                    autoRejoin: true,
+                    autoConnect: true,
+                    channels: [],
+                    secure: false,
+                    selfSigned: false,
+                    certExpired: false,
+                    floodProtection: false,
+                    floodProtectionDelay: 1000,
+                    sasl: false,
+                    stripColors: false,
+                    channelPrefixes: "&#",
+                    messageSplit: 999, // 999 ist maximale Twitch Nachrichtenlänge
+                    encoding: '',
+                    password: token // Wirde zuvor festgelegt aus A) Stdin B) Config File
+                }
+        );
+
+
+        var clientaws = new irc.Client('irc.chat.twitch.tv', username,
+                {
+                    userName: username, // IRC Name
+                    realName: username, // Wird nicht wirklich gebraucht
+                    port: 80,
+                    localAddress: null,
+                    debug: true, // Nur für Testinstanz an, genz nützlich um Pings, gesendete Nachrichten etc. zu sehen
+                    showErrors: true,
+                    autoRejoin: true,
+                    autoConnect: true,
+                    channels: [],
+                    secure: false,
+                    selfSigned: false,
+                    certExpired: false,
+                    floodProtection: false,
+                    floodProtectionDelay: 1000,
+                    sasl: false,
+                    stripColors: false,
+                    channelPrefixes: "&#",
+                    messageSplit: 999, // 999 ist maximale Twitch Nachrichtenlänge
+                    encoding: '',
+                    password: token // Wirde zuvor festgelegt aus A) Stdin B) Config File
+                }
+        );
+        client.send('CAP', 'REQ', 'twitch.tv/commands');
+        sendclient.send('CAP', 'REQ', 'twitch.tv/commands');
+        client.send('CAP', 'REQ', 'twitch.tv/membership');
+        client.send('CAP', 'REQ', 'twitch.tv/tags');
+        clientaws.send('CAP', 'REQ', 'twitch.tv/commands');
+        function whisper(username, message) {
+            groupchatclient.send("PRIVMSG", "#jtv", "/w " + username + " " + message);
+        }
+        function join(channel) {
+            client.join(channel);
+            sendclient.join(channel);
+            mods[channel] = [];
+            users[channel] = [];
+            userlisthtml[channel] = [];
+            channelhtmls = [];
+            switchchannel(channel);
+            $("#channels").append("<div id='channel' onclick='switchchannel(\"" + channel +  "\")'>" + channel + "</div>")
+            if (config.channels.indexOf(channel) == -1){
+                config.channels.push(channel);
+                fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+            }
+
+        }
+        function log(line, channel, premsg, aftermsg) {
+            console.log(line);
+            if (premsg == undefined) {
+                premsg = "";
+            }
+            if (aftermsg == undefined) {
+                aftermsg = "";
+            }
+            if (occurrences(channelhtmls[channel], "<br>") >= config["maxmessages"]) {
+                var splitted = channelhtmls[channel].split("<br>");
+                channelhtmls[channel] = channelhtmls[channel].replace(splitted[0] + "<br>", "");
+            }
+            if (config.timestamps) {
+                var date = new Date();
+                channelhtmls[channel] = channelhtmls[channel] + "[" + pad(date.getHours(), 2) + ":" +pad(date.getMinutes(), 2)+":"+pad(date.getSeconds(), 2)+"] " + premsg + " " + line + aftermsg + "<br>";
+                channelhtmls[channel].substr(0,10);
+                if (channelhtmls[channel].substr(0, 10) == "undefined[") {
+                    channelhtmls[channel] = channelhtmls[channel].replace(channelhtmls[channel].substr(0,9), "");
+                }
+                if (channel == activechannel) {
+                    $("#messages").html(channelhtmls[channel]);
+
+                    var objDiv = document.getElementById("messages");
+                    if ((document.getElementById("messages").scrollHeight - (document.getElementById("messages").scrollTop + $("#messages").height())*1.02) > 0) {
+                        console.log("NOT SCROLLING!")
+                    } else {
+                        objDiv.scrollTop = objDiv.scrollHeight;
+                        console.log("SCROLLING!")
+                    }
+
+                }
+
+            }else {
+                if (channel == activechannel) {
+                    $("#messages").append( premsg + " " + line + aftermsg + "<br>");
+                }
+                channelhtmls[channel] = channelhtmls[channel] +   premsg + " " + line + aftermsg + "<br>";
+            }
+        }
+        function switchchannel(channel) {
+            console.log("Switching active Channel to " + channel);
+            if (channel !== activechannel) {
+                activechannel = channel;
+                console.log("TO" + typeof channelhtmls[channel]);
+                if (channelhtmls[channel] == undefined) {
+                    channelhtmls[channel] = "";
+                }
+                $("#messages").html(channelhtmls[channel]);
+                $("#chatters").html(userlisthtml[channel]);
+                window.title = "CherryChat: " + channel;
+                var objDiv = document.getElementById("messages");
+                objDiv.scrollTop = objDiv.scrollHeight;
+            }
+        }
+        function handlemessage(message, channel, username) {
+            var premsg ='';
+            if (mods[channel].indexOf(username) !== -1) {
+                premsg = "<img class='modicon' src='mod.png' height='14px'>";
+            }
+            log(username + ": " + message, channel, premsg)
+        }
+        client.on('raw', function (message) {
+            console.log(message);
+            if (message.args[1] == "Error logging in" && message.command == "NOTICE") {
+                window.open("login.html");
+                client.disconnect();
+                clientaws.disconnect();
+                groupchatclient.disconnect();
+                window.close();
+            } else if ((message.args[1] !== undefined) && message.command == "NOTICE") {
+            }
+            if (message.args[1] !== undefined) {
+                if (message.args[1].split(" ")[0] == "ACTION") {
+                    console.log("omg its a /me");
+                    log(message.nick + " " + message.args[1].substr(7, message.args[1].length), message.args[0]);
+                }
+            }
+            if (message.args[1] !== undefined && message.args[2] !== undefined && message.command == "MODE") {
+                console.log("Mode!");
+                // Mode gefunden!
+                if (message.args[1] == "+o") {
+                    // Mod hinzufügen
+                    mods[message.args[0]].push(message.args[2]);
+                } else {
+                    // Mod entfernen
+                    var modindex = mods[message.args[0]].indexOf(message.args[2]);
+                    if (modindex > -1) {
+                        mods[message.args[0]].splice(modindex, 1)
+                    }
+                }
+                builduserlist(message.args[0]);
+            }
+            if (message.args[0] !== undefined && message.command == "JOIN") {
+                console.log("Join!");
+                // Join!
+                if (users[message.args[0]].indexOf(message.nick) == -1) {
+                    users[message.args[0]].push(message.nick);
+                }
+                builduserlist(message.args[0]);
+                console.log("JOIN " + message.nick + " " + message.args[0]);
+            }
+            if (message.commandType == "normal" && message.args[0] !== undefined) {
+                console.log("Got message");
+                var splitmessage = message.args[0].split(" ");
+                console.log("Splitted Message");
+                if (splitmessage[1] == "PRIVMSG") {
+                    console.log("Is PRIVMSG");
+                    var splitinfo = message.command.split(";");
+                    console.log("Info splitted");
+                    var username = splitinfo[1].substr(13, splitinfo[1].length);
+                    console.log("Username splitted");
+                    var channel = splitmessage[2].substr(1, splitmessage[2].length);
+                    channel = "#" + channel;
+                    console.log("Channel splitted");
+                    var color = splitinfo[0].substr(7);
+                    console.log("Color splitted");
+                    var message = message.args[0].replace(splitmessage[0] + " " + splitmessage[1] + " " + splitmessage[2] + " :", "");
+                    console.log("Message parsed");
+                    var emotes = splitinfo[2].substr(7).split("/");
+                    console.log(emotes);
+                    console.log("Emote list splitted");
+                    var isturbo = false;
+                    if (color=="") {
+                        color="#FFFFF";
+                    }
+                    if (splitinfo.indexOf("turbo=1") > -1) {
+                        isturbo = true;
+                    }
+                    console.log("Turbo checked");
+                    message = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    console.log("Message escaped");
+                    var replacesubstrs = [];
+                    var addlength = 0;
+                    if (emotes[0] !== undefined && emotes[0] !== ""){
+                        emotes.forEach(function(currentemote) {
+                            var idsplit = currentemote.split(":");
+                            if (currentemote.indexOf(",") > -1) {
+                                idsplit[1] = idsplit[1].split(",")[0];
+                            }
+                                var startstop = idsplit[1].split("-");
+                                console.log(startstop);
+                                console.log("Single Emote parsing: " + startstop);
+                                console.log("Message: " + message);
+                                console.log(startstop[1]);
+                                console.log(startstop[0]);
+                                console.log("Emotelength:" + (startstop[1] - startstop[0]) + "(" + message.substr(parseInt(startstop[0]), parseInt(startstop[1])) + ")");
+                                replacesubstrs.push(message.substr(parseInt(startstop[0]), parseInt(startstop[1]) + 1).split(" ")[0] + "||" + "<img src='https://static-cdn.jtvnw.net/emoticons/v1/" + idsplit[0] + "/1.0' class='modicon'>");
+
+                        })
+
+                    }
+                    console.log(replacesubstrs);
+                    replacesubstrs.forEach(function (current) {
+                        console.log(current);
+                        var splitcurrent = current.split("||");
+                        var occurrence = occurrences(message, splitcurrent[0]);
+                        console.log(occurrence + " Occurrences");
+                        var it = 0;
+                        while (it !== occurrence) {
+                            message = message.replace(splitcurrent[0], splitcurrent[1]);
+                            it++;
+                        }
+                        console.log(message);
+                    });
+                    console.log("Emotes parsed");
+                    var premsg = '';
+                    console.log("Channel: "+ channel);
+                    if (username.toLowerCase() == channel.substr(1)) {
+                        premsg += "<img class='modicon' src='broadcaster.png' height='14px'>";
+                    } else if (splitinfo.indexOf("mod=1") > -1) {
+                        premsg += "<img class='modicon' src='mod.png' height='14px'>";
+                    }
+                    console.log("Modicon added");
+                    if (isturbo) {
+                        premsg += "<img class='modicon' src='turbo.png' height='14px'>";
+                    }
+                    console.log("Turbo Icon added");
+                    premsg += "<span style='color: " + color + ";'>" + username + "</span>: ";
+                    console.log("Username added");
+                    log(premsg + message, channel);
+                    if (users[channel].indexOf(username.toLowerCase()) == -1) {
+                        users[channel].push(username.toLowerCase())
+                    }
+                    console.log("Username pushed");
+
+                } else if (splitmessage[1] == "GLOBALUSERSTATE") {
+                    var split = message.command.split(";");
+                    me.color = split[0].replace("@color=", "")
+                    me.turbo = ((split[3] == "turbo=1") ? true : false);
+                    me["display-name"] = split[1].replace("display-name=", "");
+                }
+
+            }
+        });
+        clientaws.on('raw', function (message) {
+            console.log(message);
+            if (message.args[1] == "Error logging in" && message.command == "NOTICE") {
+
+            } else if ((message.args[1] !== undefined) && message.command == "NOTICE") {
+                if (message.args[1].replace("The moderators of this room are: ", "") !== message.args[1]) {
+                    log(message.args[1], message.args[0], "<i>")
+                }
+
+
+            }
+            console.log(message.args[1] + message.args[2] + message.command);
+            if (message.args[1] !== undefined && message.args[2] !== undefined && message.command == "MODE") {
+                console.log("Mode!");
+                // Mode gefunden!
+                if (message.args[1] == "+o") {
+                    // Mod hinzufügen
+                    mods[message.args[0]].push(message.args[2]);
+                } else {
+                    // Mod entfernen
+                    var modindex = mods[message.args[0]].indexOf(message.args[2]);
+                    if (modindex > -1) {
+                        mods[message.args[0]].splice(modindex, 1)
+                    }
+                }
+                builduserlist(message.args[0]);
+            }
+            if (message.args[0] !== undefined && message.command == "JOIN") {
+                console.log("Join!");
+                // Join!
+                users[message.args[0]].push(message.nick);
+                builduserlist(message.args[0]);
+                console.log("JOIN " + message.nick + " " + message.args[0]);
+            }
+        });
+        function builduserlist(channel) {
+                    var stringbuild = "<ul class='userlist'>";
+                    if (mods[channel].indexOf(channel.substr(1)) !== -1) {
+                        stringbuild += "<li><img class='modicon' src='broadcaster.png' height='14px'> " + channel.substr(1) + "</li>";
+                    }
+                    mods[channel].forEach(function(current) {
+                        if (current !== channel.substr(1)) {
+                            stringbuild += "<li><img class='modicon' src='mod.png' height='14px'> " + current + "</li>";
+                        }
+                    });
+                    users[channel].forEach(function(current) {
+                        if (mods[channel].indexOf(current) == -1) {
+                            stringbuild += "<li>" + current + "</li>";
+                        }
+                    });
+                    stringbuild+="<ul>";
+                    userlisthtml[channel] = stringbuild;
+                    if (activechannel == channel) {
+                        $("#chatters").html(userlisthtml[channel]);
+                    }
+        }
+        //client.on('message', function (username, channel, text, message) {
+        //    handlemessage(text, channel, username);
+         //   console.log(message)
+        //});
+        clientaws.on('message', function (username, channel, text) {
+            handlemessage(text, channel, username);
+        });
+        var iteration = 2;
+        config["channels"].forEach(function(current) {
+            setTimeout(function() {
+                join(current);
+            }, iteration*1000);
+            iteration++;
+        });
+        $(document).ready(function() {
+            $(".sendasdfasdf").onkeydown(function (e) {
+                console.log("KEYDOWN " + e);
+                if (e.keyCode == 13) {
+                    if (document.getElementById("sendfield").value.split(" ")[0] == "/w") {
+                        // Whisper
+                        var splitinput = document.getElementById("sendfield").value.split(" ");
+                        if (splitinput[2] !== undefined) {
+                            whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
+                        }
+                    } else {
+                        sendclient.say(activechannel, document.getElementById("sendfield").value);
+                    }
+                    document.getElementById("sendfield").value = "";
+                }
+            });
+        });
+        function onKeyPressed(ev) {
+            var e = ev || event;
+            if(e.keyCode == 13) {
+                //Enter was pressed
+                if (document.getElementById("sendfield").value.split(" ")[0] == "/w") {
+                    // Whisper
+                    var splitinput = document.getElementById("sendfield").value.split(" ");
+                    if (splitinput[2] !== undefined) {
+                        whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
+                    }
+                } else {
+                    sendclient.say(activechannel, document.getElementById("sendfield").value);
+                }
+                document.getElementById("sendfield").value = "";
+                return false; //prevents form from being submitted.
+
+            }
+        }
+        function joindialog() {
+            var input = window.prompt("Join Channel:");
+            if (input !== null) {
+                if (input.indexOf(",") !== -1) {
+                    var splitinput = input.split(",");
+                    if (splitinput.length >= 15) {
+                        log("Note: You're trying to join too many channels at one - please restart the application, you could run into a two hour Twitch ban!", activechannel, "", "");
+                        splitinput.forEach(function(lecurrent) {
+                            config.channels.push("#" + lecurrent.replace("#", ""));
+                        });
+                        fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+                    } else {
+                        splitinput.forEach(function (currentchannel) {
+                            if (currentchannel !== "" || currentchannel !== "") {
+                                join("#" + currentchannel.replace("#", ""));
+                            }
+                        })
+                    }
+
+                } else {
+                    join("#" + input.replace("#", ""));
+                }
+            }
+        }
+
+
+    </script>
+    <style>
+        body {
+            margin: 0;
+            background: #222426;
+            color: white;
+            font-size: 14px;
+        }
+        #channellist {
+            height: 100%;
+            width: 20%;
+            position: absolute;
+            overflow-y: scroll;
+        }
+        #userlist {
+            width: 20%;
+            height: 100%;
+            left: 80%;
+            top: 0;
+            position: absolute;
+            overflow-y: scroll;
+        }
+        #messages {
+            width: 60%;
+            height: calc(100% - 20pt);
+            position: absolute;
+            left: 20%;
+            overflow-y: scroll;
+
+
+        }
+        #send {
+            width: 60%;
+            height: 20pt;
+            bottom: 0;
+            position: absolute;
+            left: 20%;
+            overflow: hidden;
+            color:black;
+            background: white;
+
+        }
+        img.modicon {
+            vertical-align: middle;
+        }
+        ul.userlist {
+            list-style-type: none;
+        }
+        #channel {
+            height: 5%;
+            width: 100%;
+            border-bottom: #4f4f4f;
+            border-bottom-style: solid;
+            text-align: center;
+            vertical-align:middle;
+        }
+        #addbutton {
+            height: 5%;
+            width: 100%;
+            text-align: center;
+        }
+        #channel:hover {
+            background: #100000;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="channellist"><div id="channels"></div><div id="addbutton" onclick="joindialog()"><i class="plus icon"></i></div></div>
+    <div id="messages">You haven't joined any channel yet! Click on the plus on the left control panel to join one</div>
+    <div id="send"><input width="100%" style="width: 100%;" onkeyup="onKeyPressed(event)" class="send" id="sendfield" placeholder="Type your message here..." /></div>
+    <div id="userlist">
+        <div id="chatters">
+        </div>
+    </div>
+</body>
+</html>

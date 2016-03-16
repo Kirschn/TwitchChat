@@ -1,0 +1,22 @@
+{
+  "main": "main.html",
+  "name": "cherrychat",
+  "description": "Native Twitch Chat Client",
+  "version": "0.5.5",
+  "keywords": [ "Twitch", "IRC" ],
+  "window": {
+    "title": "CherryChat: Not connected",
+    "icon": "turbo.png",
+    "toolbar": false,
+    "frame": true,
+    "width": 800,
+    "height": 500,
+    "min_width": 400,
+    "min_height": 200
+   },
+  "webkit": {
+    "plugin": true,
+    "chromium-args": "--enable-smooth-scrolling"
+  },
+  "chromium-args": "--enable-smooth-scrolling"
+}
