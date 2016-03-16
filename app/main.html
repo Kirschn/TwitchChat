@@ -211,6 +211,7 @@
                 }
                 $("#messages").html(channelhtmls[channel]);
                 $("#chatters").html(userlisthtml[channel]);
+                window.title("CherryChat: " + channel);
             }
         }
         function handlemessage(message, channel, username) {
@@ -356,7 +357,7 @@
         clientaws.on('raw', function (message) {
             console.log(message);
             if (message.args[1] == "Error logging in" && message.command == "NOTICE") {
-                window.href = "login.html"
+
             } else if ((message.args[1] !== undefined) && message.command == "NOTICE") {
                 if (message.args[1].replace("The moderators of this room are: ", "") !== message.args[1]) {
                     log(message.args[1], message.args[0], "<i>")
@@ -539,6 +540,5 @@
         <div id="chatters">
         </div>
     </div>
-
 </body>
 </html>

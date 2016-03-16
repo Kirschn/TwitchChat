@@ -13,10 +13,11 @@
             top: 40%;
             position: absolute;
             width: 100%;
+            text-align: center;
         }
     </style>
     <script>
-
+        window.title("CherryChat: Login");
         function startauth() {
             var gui = require('nw.gui');
             var express = require('express');
@@ -62,7 +63,7 @@
 </head>
 <body>
 <div id="center">
-    <a onclick="startauth()">Auth</a>
+    <a onclick="startauth()">Click here to log in</a>
 </div>
 </body>
 </html>
