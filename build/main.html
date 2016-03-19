@@ -8,24 +8,65 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
     <script>
+        // Extending Array prototype with new function,
+        // if that function is already defined in "Array.prototype",
+        // then "Object.defineProperty" will throw an exception
+        Object.defineProperty(Array.prototype, "remove", {
+            // Specify "enumerable" as "false" to prevent function enumeration
+            enumerable: false,
+
+            /**
+             * Removes all occurence of specified item from array
+             * @this Array
+             * @param itemToRemove Item to remove from array
+             * @returns {Number} Count of removed items
+             */
+            value: function (itemToRemove) {
+                // Count of removed items
+                var removeCounter = 0;
+
+                // Iterate every array item
+                for (var index = 0; index < this.length; index++) {
+                    // If current array item equals itemToRemove then
+                    if (this[index] === itemToRemove) {
+                        // Remove array item at current index
+                        this.splice(index, 1);
+
+                        // Increment count of removed items
+                        removeCounter++;
+
+                        // Decrement index to iterate current position
+                        // one more time, because we just removed item
+                        // that occupies it, and next item took it place
+                        index--;
+                    }
+                }
+
+                // Return count of removed items
+                return removeCounter;
+            }
+        });
         console.log("Started client");
         var irc = require("irc"),
                 fs = require("fs"),
-                request = require("request");
+                request = require("request"),
+                homedir = require("./node_modules/homedir/index.js");
         try {
-            fs.accessSync(process.env.HOMEPATH + "/.cherrychat", fs.F_OK);
+            fs.accessSync(homedir() + "/.cherrychat", fs.F_OK);
             // Do something
         } catch (e) {
-            fs.mkdirSync(process.env.HOMEPATH + "/.cherrychat");
+            fs.mkdirSync(homedir() + "/.cherrychat");
         }
         try {
-            fs.accessSync(process.env.HOMEPATH + "/.cherrychat/config.json", fs.F_OK);
-            var config = JSON.parse(fs.readFileSync(process.env.HOMEPATH + "/.cherrychat/config.json"));
+            fs.accessSync(homedir() + "/.cherrychat/config.json", fs.F_OK);
+            var config = JSON.parse(fs.readFileSync(homedir() + "/.cherrychat/config.json"));
         } catch (e) {
-            var config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200};
-            fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+            var config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200, "highlights": ""};
+            fs.writeFileSync(homedir() + "/.cherrychat/config.json", JSON.stringify(config));
         }
-
+        if (config.highlights == undefined) {
+            config.highlights = [];
+        }
         var username = config["irc"]["nick"],
                 token = config["irc"]["token"];
         var mods = [],
@@ -136,7 +177,7 @@
                 }
         );
 
-
+        var highlights = [];
         var clientaws = new irc.Client('irc.chat.twitch.tv', username,
                 {
                     userName: username, // IRC Name
@@ -180,7 +221,7 @@
             $("#channels").append("<div id='channel' onclick='switchchannel(\"" + channel +  "\")'>" + channel + "</div>")
             if (config.channels.indexOf(channel) == -1){
                 config.channels.push(channel);
-                fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+                fs.writeFileSync(homedir() + "/.cherrychat/config.json", JSON.stringify(config));
             }
 
         }
@@ -284,6 +325,14 @@
                 }
                 builduserlist(message.args[0]);
                 console.log("JOIN " + message.nick + " " + message.args[0]);
+            } else if (message.args[0] !== undefined && message.command == "PART") {
+                console.log("Part!");
+                // Join!
+                if (users[message.args[0]].indexOf(message.nick) !== -1) {
+                    users[message.args[0]].remove(message.nick);
+                }
+                builduserlist(message.args[0]);
+                console.log("PART " + message.nick + " " + message.args[0]);
             }
             if (message.commandType == "normal" && message.args[0] !== undefined) {
                 console.log("Got message");
@@ -371,7 +420,7 @@
 
                 } else if (splitmessage[1] == "GLOBALUSERSTATE") {
                     var split = message.command.split(";");
-                    me.color = split[0].replace("@color=", "")
+                    me.color = split[0].replace("@color=", "");
                     me.turbo = ((split[3] == "turbo=1") ? true : false);
                     me["display-name"] = split[1].replace("display-name=", "");
                 }
@@ -448,23 +497,6 @@
             }, iteration*1000);
             iteration++;
         });
-        $(document).ready(function() {
-            $(".sendasdfasdf").onkeydown(function (e) {
-                console.log("KEYDOWN " + e);
-                if (e.keyCode == 13) {
-                    if (document.getElementById("sendfield").value.split(" ")[0] == "/w") {
-                        // Whisper
-                        var splitinput = document.getElementById("sendfield").value.split(" ");
-                        if (splitinput[2] !== undefined) {
-                            whisper(splitinput[1], document.getElementById("sendfield").value.replace("/w " + splitinput[1] + " ", ""));
-                        }
-                    } else {
-                        sendclient.say(activechannel, document.getElementById("sendfield").value);
-                    }
-                    document.getElementById("sendfield").value = "";
-                }
-            });
-        });
         function onKeyPressed(ev) {
             var e = ev || event;
             if(e.keyCode == 13) {
@@ -483,6 +515,10 @@
 
             }
         }
+        function stream(channel) {
+            channel = channel.replace("#", "");
+            var streampopup = window.open("https://player.twitch.tv/?channel=" + channel);
+        }
         function joindialog() {
             var input = window.prompt("Join Channel:");
             if (input !== null) {
@@ -493,7 +529,7 @@
                         splitinput.forEach(function(lecurrent) {
                             config.channels.push("#" + lecurrent.replace("#", ""));
                         });
-                        fs.writeFileSync(process.env.HOMEPATH + "/.cherrychat/config.json", JSON.stringify(config));
+                        fs.writeFileSync(homedir() + "/.cherrychat/config.json", JSON.stringify(config));
                     } else {
                         splitinput.forEach(function (currentchannel) {
                             if (currentchannel !== "" || currentchannel !== "") {
