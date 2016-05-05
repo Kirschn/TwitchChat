@@ -50,18 +50,21 @@
         var irc = require("irc"),
                 fs = require("fs"),
                 request = require("request"),
-                homedir = require("./node_modules/homedir/index.js");
+                homedir = require("./node_modules/homedir/index.js"),
+                express = require("express"),
+                webapp = express();
         try {
             fs.accessSync(homedir() + "/.cherrychat", fs.F_OK);
             // Do something
         } catch (e) {
             fs.mkdirSync(homedir() + "/.cherrychat");
         }
+        var config = "";
         try {
             fs.accessSync(homedir() + "/.cherrychat/config.json", fs.F_OK);
-            var config = JSON.parse(fs.readFileSync(homedir() + "/.cherrychat/config.json"));
+            config = JSON.parse(fs.readFileSync(homedir() + "/.cherrychat/config.json"));
         } catch (e) {
-            var config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200, "highlights": ""};
+            config = {"irc":{"nick":"","token":"","display_name":""},"timestamps":true,"channels":[],"maxmessages":200, "highlights": ""};
             fs.writeFileSync(homedir() + "/.cherrychat/config.json", JSON.stringify(config));
         }
         if (config.highlights == undefined) {
@@ -75,6 +78,7 @@
         var channelhtmls = [],
                 userlisthtml = [];
         var activechannel = "";
+        var hightlights = [];
         function pad(num, size) {
             var s = num+"";
             while (s.length < size) s = "0" + s;
@@ -208,7 +212,7 @@
         client.send('CAP', 'REQ', 'twitch.tv/tags');
         clientaws.send('CAP', 'REQ', 'twitch.tv/commands');
         function whisper(username, message) {
-            groupchatclient.send("PRIVMSG", "#jtv", "/w " + username + " " + message);
+            client.send("PRIVMSG", "#jtv", "/w " + username + " " + message);
         }
         function join(channel) {
             client.join(channel);
@@ -217,8 +221,8 @@
             users[channel] = [];
             userlisthtml[channel] = [];
             channelhtmls = [];
+            $("#channels").append("<div class='channel' id='" + channel + "' onclick='switchchannel(\"" + channel +  "\")'>" + channel + " (0)</div>");
             switchchannel(channel);
-            $("#channels").append("<div id='channel' onclick='switchchannel(\"" + channel +  "\")'>" + channel + "</div>")
             if (config.channels.indexOf(channel) == -1){
                 config.channels.push(channel);
                 fs.writeFileSync(homedir() + "/.cherrychat/config.json", JSON.stringify(config));
@@ -255,14 +259,32 @@
                         console.log("SCROLLING!")
                     }
 
+                } else {
+                    document.getElementById(channel).innerHTML = channel + " (" + (parseInt(document.getElementById(channel).innerHTML.replace(channel + " (", "")
+                                    .replace(")", "")) + 1) + ")";
                 }
 
             }else {
                 if (channel == activechannel) {
                     $("#messages").append( premsg + " " + line + aftermsg + "<br>");
+                } else {
+                    document.getElementById(channel).innerHTML = channel + " (" + (parseInt(document.getElementById(channel).innerHTML.replace(channel + " (", "")
+                                    .replace(")", "")) + 1) + ")";
                 }
                 channelhtmls[channel] = channelhtmls[channel] +   premsg + " " + line + aftermsg + "<br>";
+
             }
+            checkHighlight(channel, line);
+        }
+        function checkHighlight(channel, message) {
+            config.highlights.forEach(function(currentHighlight) {
+               if (message.indexOf(currentHighlight) !== -1) {
+                    highlights.push({
+                        "message": message,
+                        "channel": channel
+                    })
+               }
+            });
         }
         function switchchannel(channel) {
             console.log("Switching active Channel to " + channel);
@@ -277,6 +299,10 @@
                 window.title = "CherryChat: " + channel;
                 var objDiv = document.getElementById("messages");
                 objDiv.scrollTop = objDiv.scrollHeight;
+                if (document.getElementById(channel) !== null) {
+                    document.getElementById(channel).innerHTML = channel +  " (0)";
+                }
+
             }
         }
         function handlemessage(message, channel, username) {
@@ -339,7 +365,7 @@
                 var splitmessage = message.args[0].split(" ");
                 console.log("Splitted Message");
                 if (splitmessage[1] == "PRIVMSG") {
-                    console.log("Is PRIVMSG")
+                    console.log("Is PRIVMSG");
                     var username = "", channel = "", color = "", emotes = "";
                     var splitinfo = message.command.split(";");
                     console.log("Info splitted");
@@ -358,7 +384,7 @@
                     channel = splitmessage[2];
                     console.log("Channel splitted");
                     console.log("Color splitted");
-                    var message = message.args[0].replace(splitmessage[0] + " " + splitmessage[1] + " " + splitmessage[2] + " :", "");
+                    message = message.args[0].replace(splitmessage[0] + " " + splitmessage[1] + " " + splitmessage[2] + " :", "");
                     console.log("Message parsed");
                     console.log(emotes);
                     console.log("Emote list splitted");
@@ -373,7 +399,6 @@
                     message = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     console.log("Message escaped");
                     var replacesubstrs = [];
-                    var addlength = 0;
                     if (emotes[0] !== undefined && emotes[0] !== ""){
                         emotes.forEach(function(currentemote) {
                             console.log("Current Emote: " + currentemote);
@@ -409,13 +434,13 @@
                     var premsg = '';
                     console.log("Channel: "+ channel);
                     if (username.toLowerCase() == channel.substr(1)) {
-                        premsg += "<img class='modicon' src='broadcaster.png' height='14px'>";
+                        premsg += "<img class='modicon' src='http://chat-badges.s3.amazonaws.com/broadcaster.png' height='14px'>";
                     } else if (splitinfo.indexOf("mod=1") > -1) {
-                        premsg += "<img class='modicon' src='mod.png' height='14px'>";
+                        premsg += "<img class='modicon' src='http://chat-badges.s3.amazonaws.com/mod.png' height='14px'>";
                     }
                     console.log("Modicon added");
                     if (isturbo) {
-                        premsg += "<img class='modicon' src='turbo.png' height='14px'>";
+                        premsg += "<img class='modicon' src='http://chat-badges.s3.amazonaws.com/turbo.png' height='14px'>";
                     }
                     console.log("Turbo Icon added");
                     premsg += "<span style='color: " + color + ";'>" + username + "</span>: ";
@@ -551,8 +576,28 @@
                 }
             }
         }
-
-
+    var highlightTemplate = fs.readFileSync("highlighttemplate.html", "utf8"),
+            broadcasterIcon = fs.readFileSync("broadcaster.png", "utf8");
+        turboIcon = fs.readFileSync("turbo.png", "utf8");
+        modIcon = fs.readFileSync("mod.png", "utf8");
+    webapp.get("/highlights", function(req, res) {
+        res.send(highlightTemplate);
+    });
+        webapp.get("/highlights.json", function(req, res) {
+            res.send(JSON.stringify(highlights));
+        });
+        webapp.get("/broadcaster.png", function (req, res) {
+            res.sendFile(__dirname + "broadcaster.png");
+        });
+        webapp.get("/turbo.png", function (req, res) {
+            res.sendFile(__dirname + "turbo.png");
+        });
+        webapp.get("/mod.png", function (req, res) {
+            res.sendFile(__dirname + "mod.png");
+        });
+        webapp.listen(42135, function() {
+            console.log("Webserver started");
+        })
     </script>
     <style>
         body {
@@ -601,7 +646,7 @@
         ul.userlist {
             list-style-type: none;
         }
-        #channel {
+        .channel {
             height: 5%;
             width: 100%;
             border-bottom: #4f4f4f;
@@ -614,7 +659,7 @@
             width: 100%;
             text-align: center;
         }
-        #channel:hover {
+        .channel:hover {
             background: #100000;
         }
 

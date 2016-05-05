@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Highlights</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #222426;
+            color: white;
+            font-size: 14px;
+        }
+        .highlighttable {
+            width: 100%;
+            overflow-y: scroll;
+        }
+        img.modicon {
+            vertical-align: middle;
+        }
+    </style>
+    <script>
+        function getHighlights() {
+            $.get("highlights.json", function(data) {
+                var parsedData = JSON.parse(data);
+                console.log(parsedData);
+                var buildString = "";
+                parsedData.forEach(function(current) {
+                    console.log(current);
+                    buildString += "<tr><td>";
+                    buildString += current.channel;
+                    buildString += "</td><td>";
+                    buildString += current.message;
+                    buildString += "</td>";
+                    buildString += "</tr>";
+                });
+                document.getElementById("highlighttablebody").innerHTML = buildString;
+            })
+        }
+        setInterval(function() {
+            getHighlights();
+        }, 1000)
+    </script>
+</head>
+<body onload="getHighlights()">
+<div class="highlighttable">
+<table>
+    <thead>
+        <tr>
+            <td width="200px">Channel</td>
+            <td>Message</td>
+        </tr>
+    </thead>
+    <tbody id="highlighttablebody">
+
+    </tbody>
+</table>
+</div>
+</body>
+</html>
